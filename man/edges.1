@@ -1,0 +1,76 @@
+.TH "EDGES" "1" "2021-09-06" "edges 2.0.2" "User Commands"
+.SH NAME
+edges -\ Command-line tool to set up hot-corners
+.SH SYNOPSIS
+\fBedges\fR [options]...
+.SH DESCRIPTION
+With edges you can configure hot-corners independently from your Desktop Environment
+or Window Manager. The commands can be passed as arguments or read from a configuration
+file.
+.SH OPTIONS
+.IP "\fB\--top-left\fR \fIcmd\fR"
+Set the command for top left corner.
+.PP
+.IP "\fB\--top-right\fR \fIcmd\fR"
+Set the command for top right corner.
+.PP
+.IP "\fB\--bottom-right\fR \fIcmd\fR"
+Set the command for bottom right corner.
+.PP
+.IP "\fB\--bottom-left\fR \fIcmd\fR"
+Set the command for bottom left corner.
+.PP
+.IP "\fB\--left\fR \fIcmd\fR"
+Set the command for left edge.
+.PP
+.IP "\fB\--top\fR \fIcmd\fR"
+Set the command for top edge.
+.PP
+.IP "\fB\--right\fR \fIcmd\fR"
+Set the command for right edge.
+.PP
+.IP "\fB\--bottom\fR \fIcmd\fR"
+Set the command for bottom edge.
+.PP
+.IP "\fB\-b, --no-blocking\fR"
+Do not wait until an executed command exits.
+.PP
+.IP "\fB\-c, --use-config\fR"
+Read the commands from a configuration file, see \fIFILES\fR section for details.
+All commands passed as arguments will be ignored.
+.PP
+.IP "\fB\-h, --help\fR"
+Show help message and exit.
+.PP
+.IP "\fB\-v, --verbose\fR"
+Print the mouse position and command calls to stdout.
+.PP
+.IP "\fB\--version\fR"
+Display the version and exit.
+.SH FILES
+.IP "\fB$HOME/.config/edges/edges.rc\fR"
+The configuration file that is used by the \fI--use-config\fR option.
+The file must be created manually.
+.PP
+.RS
+Example:
+.nf
+
+# This is a comment
+top-left = skippy-xd
+top-right =
+bottom-right =
+bottom-left =
+left =
+top =
+right =
+bottom =
+
+.fi
+.RE
+.SH MULTI MONITOR
+Multi monitor support is experimental only. Do not expect it to work properly in all setups.
+.SH AUTHOR
+Written by Michael Straube.
+.SH COPYRIGHT
+GNU General Public License version 3 or later <https://www.gnu.org/licenses/>.
