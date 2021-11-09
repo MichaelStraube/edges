@@ -229,14 +229,11 @@ static void run(char **args)
 		/* if execvp returns it must have failed */
 		warn("execvp failed");
 		_exit(0);
-	}
-
-	if (pid > 0) {
+	} else {
 		/* parent */
 		if (options.blocking) {
 			wait(NULL);
 		}
-		return;
 	}
 }
 
