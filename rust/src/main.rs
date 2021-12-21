@@ -9,6 +9,10 @@ use std::mem::MaybeUninit;
 use std::ffi::CStr;
 use nix::unistd;
 use nix::sys;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
+
+static QUIT: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug, StructOpt)]
 struct Opts {
@@ -57,6 +61,10 @@ enum Edge {
 	RIGHT,
 	BOTTOM,
 	NONE,
+}
+
+fn sighandler() {
+	QUIT.store(true, Ordering::Relaxed);
 }
 
 fn point_in_rect(x: i32, y: i32, rect: (i32, i32, i32, i32)) -> bool
@@ -199,6 +207,11 @@ fn main()
 	}
 
 	unsafe {
+		// Catch signals
+		libc::signal(libc::SIGINT, sighandler as usize);
+		libc::signal(libc::SIGTERM, sighandler as usize);
+		libc::signal(libc::SIGHUP, sighandler as usize);
+
 		// Open display
 		let display = xlib::XOpenDisplay(ptr::null());
 		if display.is_null() {
@@ -278,7 +291,7 @@ fn main()
 				continue;
 			}
 
-			let mut event = {
+			let event = {
 				let mut event = MaybeUninit::uninit();
 				xlib::XNextEvent(display, event.as_mut_ptr());
 				event.assume_init()
@@ -325,7 +338,7 @@ fn main()
 				if (x == oldx && y == oldy) ||
 				   (x == oldx && y > offset && y < ymax - offset) ||
 				   (y == oldy && x > offset && x < xmax - offset) {
-					xlib::XFreeEventData(display, &mut event.generic_event_cookie);
+					xlib::XFreeEventData(display, &mut cookie);
 					continue;
 				}
 
@@ -338,14 +351,19 @@ fn main()
 				oldy = y;
 			}
 
-			xlib::XFreeEventData(display, &mut event.generic_event_cookie);
+			xlib::XFreeEventData(display, &mut cookie);
+
+			if QUIT.load(Ordering::Relaxed) {
+				break;
+			}
 
 			if libc::poll(&mut fds, 1, -1) < 0 {
 				break;
 			}
 		};
 
-		// Close display
+		// Clean up
+		xrandr::XRRFreeMonitors(monitorinfo);
 		xlib::XCloseDisplay(display);
 	}
 }
