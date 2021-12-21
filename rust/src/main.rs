@@ -59,11 +59,65 @@ enum Edge {
 	NONE,
 }
 
-fn get_xymax(xmax: &mut i32, ymax: &mut i32, display: *mut xlib::Display)
+fn point_in_rect(x: i32, y: i32, rect: (i32, i32, i32, i32)) -> bool
+{
+	let (rx, ry, rw, rh) = rect;
+
+	if (rx <= x && x < rx + rw) &&
+	   (ry <= y && y < ry + rh) {
+		return true;
+	}
+	return false;
+}
+
+fn pointer_in_monitor(x: i32, y: i32, nmonitors: i32, monitorinfo: *const xrandr::XRRMonitorInfo) -> i32
+{
+	for i in 0..nmonitors {
+		let rect = unsafe {
+			((*monitorinfo.offset(i as isize)).x,
+			 (*monitorinfo.offset(i as isize)).y,
+			 (*monitorinfo.offset(i as isize)).width,
+			 (*monitorinfo.offset(i as isize)).height)
+		};
+
+		if point_in_rect(x, y, rect) {
+			return i;
+		}
+	}
+
+	return -1;
+}
+
+fn get_xymax(x: i32, y: i32, xmax: &mut i32, ymax: &mut i32, display: *mut xlib::Display, nmonitors: i32, monitorinfo: *const xrandr::XRRMonitorInfo)
 {
 	unsafe {
 		*xmax = xlib::XDisplayWidth(display, xlib::XDefaultScreen(display)) - 1;
 		*ymax = xlib::XDisplayHeight(display, xlib::XDefaultScreen(display)) - 1;
+	}
+
+	if nmonitors == 1 {
+		return;
+	}
+
+	let i = pointer_in_monitor(x, y, nmonitors, monitorinfo);
+	if i < 0 {
+		panic!("pointer_in_mointor failed");
+	}
+
+	unsafe {
+		let w = (*monitorinfo.offset(i as isize)).width;
+		let xoff = (*monitorinfo.offset(i as isize)).x;
+
+		if xoff + w <= *xmax {
+			*xmax = xoff + w - 1;
+		}
+
+		let h = (*monitorinfo.offset(i as isize)).height;
+		let yoff = (*monitorinfo.offset(i as isize)).y;
+
+		if yoff + h <= *ymax {
+			*ymax = yoff + h - 1;
+		}
 	}
 }
 
@@ -198,6 +252,13 @@ fn main()
 		};
 		xinput2::XISelectEvents(display, window, &mut event_mask, 1);
 
+		// Get monitors
+		let mut nmonitors: i32 = 0;
+		let monitorinfo = xrandr::XRRGetMonitors(display, window, xlib::True, &mut nmonitors);
+		if monitorinfo.is_null() {
+			panic!("XRRGetMonitors failed");
+		}
+
 		// prepare polling
 		let mut fds = libc::pollfd {
 			fd: xlib::XConnectionNumber(display),
@@ -255,7 +316,7 @@ fn main()
 					println!("{} {}", x, y);
 				}
 
-				get_xymax(&mut xmax, &mut ymax, display);
+				get_xymax(x, y, &mut xmax, &mut ymax, display, nmonitors, monitorinfo);
 
 				// Specifies the "hot" zones
 				let offset: i32 = ((ymax as f64) * 0.25) as i32;
