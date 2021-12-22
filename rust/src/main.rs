@@ -11,6 +11,7 @@ use nix::unistd;
 use nix::sys;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
+use configparser::ini::Ini;
 
 static QUIT: AtomicBool = AtomicBool::new(false);
 
@@ -48,6 +49,18 @@ struct Opts {
 
 	#[structopt(long, short, help = "Block until a command exits")]
 	block: bool,
+}
+
+#[derive(Debug)]
+struct Commands {
+	topleft: Option<String>,
+	topright: Option<String>,
+	bottomright: Option<String>,
+	bottomleft: Option<String>,
+	left: Option<String>,
+	top: Option<String>,
+	right: Option<String>,
+	bottom: Option<String>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -152,17 +165,17 @@ fn in_edge(x: i32, y: i32, xmax: i32, ymax: i32, offset: i32) -> Edge
 	}
 }
 
-fn run(opts: &Opts, edge: Edge)
+fn run(opts: &Opts, edge: Edge, cmds: &Commands)
 {
 	let cmd = match edge {
-		Edge::TOPLEFT => &opts.topleft,
-		Edge::TOPRIGHT => &opts.topright,
-		Edge::BOTTOMRIGHT => &opts.bottomright,
-		Edge::BOTTOMLEFT => &opts.bottomleft,
-		Edge::LEFT => &opts.left,
-		Edge::TOP => &opts.top,
-		Edge::RIGHT => &opts.right,
-		Edge::BOTTOM => &opts.bottom,
+		Edge::TOPLEFT => &cmds.topleft,
+		Edge::TOPRIGHT => &cmds.topright,
+		Edge::BOTTOMRIGHT => &cmds.bottomright,
+		Edge::BOTTOMLEFT => &cmds.bottomleft,
+		Edge::LEFT => &cmds.left,
+		Edge::TOP => &cmds.top,
+		Edge::RIGHT => &cmds.right,
+		Edge::BOTTOM => &cmds.bottom,
 		_ => &None,
 	};
 
@@ -199,7 +212,34 @@ fn run(opts: &Opts, edge: Edge)
 fn main()
 {
 	let opts = Opts::from_args();
-	//println!("{:?}", opts);
+
+	let mut cmds = Commands {
+		topleft: opts.topleft.clone(),
+		topright: opts.topright.clone(),
+		bottomright: opts.bottomright.clone(),
+		bottomleft: opts.bottomleft.clone(),
+		left: opts.left.clone(),
+		top: opts.top.clone(),
+		right: opts.right.clone(),
+		bottom: opts.bottom.clone(),
+	};
+
+	if opts.config {
+		let mut cfg = Ini::new();
+		let mut path = dirs::config_dir().unwrap();
+		path.push("edges.conf");
+		if let Err(err) = cfg.load(path) {
+			panic!("{}", err);
+		}
+		cmds.topleft = cfg.get("commands", "topleft");
+		cmds.topright = cfg.get("commands", "topright");
+		cmds.bottomright = cfg.get("commands", "bottomright");
+		cmds.bottomleft = cfg.get("commands", "bottomleft");
+		cmds.left = cfg.get("commands", "left");
+		cmds.top = cfg.get("commands", "top");
+		cmds.right = cfg.get("commands", "right");
+		cmds.bottom = cfg.get("commands", "bottom");
+	}
 
 	// Check if we run on Wayland
 	if let Ok(_) = env::var("WAYLAND_DISPLAY") {
@@ -344,7 +384,7 @@ fn main()
 
 				let edge = in_edge(x, y, xmax, ymax, offset);
 				if edge != Edge::NONE {
-					run(&opts, edge);
+					run(&opts, edge, &cmds);
 				}
 
 				oldx = x;
