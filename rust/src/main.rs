@@ -213,6 +213,7 @@ fn main()
 {
 	let opts = Opts::from_args();
 
+	// Set commands from arguments
 	let mut cmds = Commands {
 		topleft: opts.topleft.clone(),
 		topright: opts.topright.clone(),
@@ -224,6 +225,7 @@ fn main()
 		bottom: opts.bottom.clone(),
 	};
 
+	// Load commands from file
 	if opts.config {
 		let mut cfg = Ini::new();
 		let mut path = dirs::config_dir().unwrap();
