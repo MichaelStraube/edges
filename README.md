@@ -6,41 +6,43 @@ or Window Manager. The commands to run on edge or corner hits can be passed as a
 or read from a configuration file.
 
 ## Installation
-### Install compiler and required libraries
-#### debian / ubuntu
+### Install Rust and required libraries
+#### openSUSE Tumbleweed
 ```
-sudo apt install build-essential libx11-dev libxi-dev libxrandr-dev
+sudo zypper install cargo libX11-devel libXi-devel libXrandr-devel
 ```
 
 ### Build and install
-Run make and make install from the project root directory. The default install
-prefix is `/usr/local`.
+Build the binary.
 ```
-make
-sudo make install
+cargo build --release
 ```
 
-### Install with different prefix
+Install the binary and man page to `/usr/local`.
 ```
-sudo make PREFIX=/usr install
+sudo mkdir -p /usr/local/bin
+sudo cp target/release/edges /usr/local/bin
+
+sudo mkdir -p /usr/local/man/man1
+sudo cp man/edges.1 /usr/local/man/man1
 ```
 
 ## Usage
 Basic usage example.
 ```
-edges --top-left skippy-xd
+edges --topleft skippy-xd
 ```
 
-To read commands from a file with the `--use-config` option you have to create
+To read commands from a file with the `--config` option you have to create
 the file manually.
 ```
-$HOME/.config/edges/edges.rc
+$HOME/.config/edges.conf
 
-# This is a comment
-top-left = skippy-xd
-top-right =
-bottom-right =
-bottom-left =
+[Commands]
+topleft = skippy-xd
+topright =
+bottomright =
+bottomleft =
 left =
 top =
 right =
