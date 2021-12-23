@@ -1,2 +1,2 @@
-edges
-src/*.o
+Cargo.lock
+target
