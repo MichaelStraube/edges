@@ -13,12 +13,12 @@ sudo zypper install cargo libX11-devel libXi-devel libXrandr-devel
 ```
 
 ### Build and install
-Build the binary.
+Build.
 ```
 cargo build --release
 ```
 
-Install the binary and man page to `/usr/local`.
+Install to `/usr/local`.
 ```
 sudo mkdir -p /usr/local/bin
 sudo cp target/release/edges /usr/local/bin
