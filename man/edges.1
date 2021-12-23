@@ -1,66 +1,67 @@
 .TH "EDGES" "1" "2021-09-06" "edges 2.0.2" "User Commands"
 .SH NAME
-edges -\ Command-line tool to set up hot-corners
+edges - set up hot-corners
 .SH SYNOPSIS
-\fBedges\fR [options]...
+\fBedges\fR [FLAGS] [OPTIONS]
 .SH DESCRIPTION
 With edges you can configure hot-corners independently from your Desktop Environment
 or Window Manager. The commands can be passed as arguments or read from a configuration
 file.
-.SH OPTIONS
-.IP "\fB\--top-left\fR \fIcmd\fR"
-Set the command for top left corner.
-.PP
-.IP "\fB\--top-right\fR \fIcmd\fR"
-Set the command for top right corner.
-.PP
-.IP "\fB\--bottom-right\fR \fIcmd\fR"
-Set the command for bottom right corner.
-.PP
-.IP "\fB\--bottom-left\fR \fIcmd\fR"
-Set the command for bottom left corner.
-.PP
-.IP "\fB\--left\fR \fIcmd\fR"
-Set the command for left edge.
-.PP
-.IP "\fB\--top\fR \fIcmd\fR"
-Set the command for top edge.
-.PP
-.IP "\fB\--right\fR \fIcmd\fR"
-Set the command for right edge.
-.PP
-.IP "\fB\--bottom\fR \fIcmd\fR"
-Set the command for bottom edge.
-.PP
-.IP "\fB\-b, --no-blocking\fR"
-Do not wait until an executed command exits.
-.PP
-.IP "\fB\-c, --use-config\fR"
-Read the commands from a configuration file, see \fIFILES\fR section for details.
-All commands passed as arguments will be ignored.
-.PP
-.IP "\fB\-h, --help\fR"
-Show help message and exit.
-.PP
-.IP "\fB\-v, --verbose\fR"
-Print the mouse position and command calls to stdout.
-.PP
-.IP "\fB\--version\fR"
-Display the version and exit.
+.SH "FLAGS"
+.TP
+\fB\-b\fR, \fB\-\-block\fR
+Block until a command exits
+.TP
+\fB\-c\fR, \fB\-\-config\fR
+Read commands from config file
+.TP
+\fB\-d\fR, \fB\-\-debug\fR
+Prints debug information
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Prints help information
+.TP
+\fB\-V\fR, \fB\-\-version\fR
+Prints version information
+.SH "OPTIONS"
+.TP
+\fB\-\-bottom\fR <CMD>
+Bottom edge command
+.TP
+\fB\-\-bottomleft\fR <CMD>
+Bottom left corner command
+.TP
+\fB\-\-bottomright\fR <CMD>
+Bottom right corner command
+.TP
+\fB\-\-left\fR <CMD>
+Left edge command
+.TP
+\fB\-\-right\fR <CMD>
+Right edge command
+.TP
+\fB\-\-top\fR <CMD>
+Top edge command
+.TP
+\fB\-\-topleft\fR <CMD>
+Top left corner command
+.TP
+\fB\-\-topright\fR <CMD>
+Top right corner comma
 .SH FILES
-.IP "\fB$HOME/.config/edges/edges.rc\fR"
-The configuration file that is used by the \fI--use-config\fR option.
+.IP "\fB$HOME/.config/edges.conf\fR"
+The configuration file that is used by the --config flag.
 The file must be created manually.
 .PP
 .RS
 Example:
 .nf
 
-# This is a comment
-top-left = skippy-xd
-top-right =
-bottom-right =
-bottom-left =
+[Commands]
+topleft = skippy-xd
+topright =
+bottomright =
+bottomleft =
 left =
 top =
 right =
@@ -73,4 +74,4 @@ Multi monitor support is experimental only. Do not expect it to work properly in
 .SH AUTHOR
 Written by Michael Straube.
 .SH COPYRIGHT
-GNU General Public License version 3 or later <https://www.gnu.org/licenses/>.
+MIT License <https://opensource.org/licenses/MIT>.
