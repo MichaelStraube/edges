@@ -17,28 +17,28 @@ static QUIT: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug, StructOpt)]
 struct Opts {
-	#[structopt(long, help = "Top left corner command")]
+	#[structopt(long, value_name = "CMD", help = "Top left corner command")]
 	topleft: Option<String>,
 
-	#[structopt(long, help = "Top right corner command")]
+	#[structopt(long, value_name = "CMD", help = "Top right corner command")]
 	topright: Option<String>,
 
-	#[structopt(long, help = "Bottom right corner command")]
+	#[structopt(long, value_name = "CMD", help = "Bottom right corner command")]
 	bottomright: Option<String>,
 
-	#[structopt(long, help = "Bottom left corner command")]
+	#[structopt(long, value_name = "CMD", help = "Bottom left corner command")]
 	bottomleft: Option<String>,
 
-	#[structopt(long, help = "Left edge command")]
+	#[structopt(long, value_name = "CMD", help = "Left edge command")]
 	left: Option<String>,
 
-	#[structopt(long, help = "Top edge command")]
+	#[structopt(long, value_name = "CMD", help = "Top edge command")]
 	top: Option<String>,
 
-	#[structopt(long, help = "Right edge command")]
+	#[structopt(long, value_name = "CMD", help = "Right edge command")]
 	right: Option<String>,
 
-	#[structopt(long, help = "Bottom edge command")]
+	#[structopt(long, value_name = "CMD", help = "Bottom edge command")]
 	bottom: Option<String>,
 
 	#[structopt(long, short, help = "Prints debug information")]
