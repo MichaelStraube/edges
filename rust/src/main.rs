@@ -13,7 +13,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use configparser::ini::Ini;
 
-static QUIT: AtomicBool = AtomicBool::new(false);
+static RUNNING: AtomicBool = AtomicBool::new(true);
 
 #[derive(Debug, StructOpt)]
 struct Opts {
@@ -77,7 +77,7 @@ enum Edge {
 }
 
 fn sighandler() {
-	QUIT.store(true, Ordering::Relaxed);
+	RUNNING.store(false, Ordering::Relaxed);
 }
 
 fn point_in_rect(x: i32, y: i32, rect: (i32, i32, i32, i32)) -> bool
@@ -326,7 +326,7 @@ fn main()
 		let mut xmax: i32 = 0;
 		let mut ymax: i32 = 0;
 
-		loop {
+		while RUNNING.load(Ordering::Relaxed) {
 			if xlib::XPending(display) == 0 {
 				continue;
 			}
@@ -392,10 +392,6 @@ fn main()
 			}
 
 			xlib::XFreeEventData(display, &mut cookie);
-
-			if QUIT.load(Ordering::Relaxed) {
-				break;
-			}
 
 			if libc::poll(&mut fds, 1, -1) < 0 {
 				break;
