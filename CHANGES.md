@@ -2,6 +2,10 @@
 
 ## Unreleased
 - Rewritten in Rust.
+- Renamed some options.
+- Blocking is disabled by default now.
+- Changed config file format and location.
+- Switched to MIT license.
 
 ## 2.0.2 (2021-09-06)
 - Updated the man page.
