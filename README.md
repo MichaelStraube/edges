@@ -13,9 +13,9 @@ sudo zypper install cargo libX11-devel libXi-devel libXrandr-devel
 ```
 
 ### Build and install
-Build.
+Run cargo build from the project root directory.
 ```
-cargo build --release
+CARGO_TARGET_DIR=target cargo build --release
 ```
 
 Install to `/usr/local`.
