@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 3.0.0 (2021-12-30)
 - Rewritten in Rust.
 - Renamed some options.
 - Blocking is disabled by default now.
