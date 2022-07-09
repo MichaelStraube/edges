@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.0.1 (2022-07-09)
+- Maintenance release.
+- Updated dependencies.
+
 ## 3.0.0 (2021-12-30)
 - Rewritten in Rust.
 - Renamed some options.
