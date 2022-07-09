@@ -7,9 +7,9 @@ edition = "2021"
 xlib = []
 
 [dependencies]
-structopt = "0.2.15"
+structopt = "0.3.26"
 x11 = "2.19.1"
-libc = "0.2.112"
-nix = "0.23.1"
+libc = "0.2.126"
+nix = "0.24.1"
 configparser = "3.0.0"
 dirs = "4.0.0"
