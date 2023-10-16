@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.2 (2023-10-16)
+- Maintenance release.
+- Updated dependencies.
+- Minor bug fix.
+
 ## 3.0.1 (2022-07-09)
 - Maintenance release.
 - Updated dependencies.
