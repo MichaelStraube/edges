@@ -190,6 +190,9 @@ fn run(opts: &Opts, edge: Edge, cmds: &Commands)
 	// Split to C strings for execvp
 	let s: String = cmd.as_ref().unwrap().to_string();
 	let split: Vec<&str> = s.split_whitespace().collect();
+	if split.is_empty() {
+		return;
+	}
 	let vec: Vec<CString> = split.iter().map(|s| CString::new(s.as_bytes()).unwrap()).collect();
 	let args: Vec<&CStr> = vec.iter().map(|c| c.as_c_str()).collect();
 
