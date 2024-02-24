@@ -15,7 +15,11 @@ sudo zypper install cargo libX11-devel libXi-devel libXrandr-devel
 ### Build and install
 Run cargo build from the project root directory.
 ```
-CARGO_TARGET_DIR=target cargo build --release
+cargo build --release
+```
+On FreeBSD you need to set rustflags to avoid linking errors.
+```
+RUSTFLAGS="-L/usr/local/lib" cargo build --release
 ```
 
 Install to `/usr/local`.
