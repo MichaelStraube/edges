@@ -12,6 +12,8 @@ use nix::sys;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use configparser::ini::Ini;
+use std::thread;
+use std::time;
 
 static RUNNING: AtomicBool = AtomicBool::new(true);
 
@@ -41,7 +43,7 @@ struct Opts {
 	#[structopt(long, value_name = "CMD", help = "Bottom edge command")]
 	bottom: Option<String>,
 
-	#[structopt(long, short, help = "Prints debug information")]
+	#[structopt(long, help = "Prints debug information")]
 	debug: bool,
 
 	#[structopt(long, short, help = "Read commands from config file")]
@@ -49,6 +51,9 @@ struct Opts {
 
 	#[structopt(long, short, help = "Block until a command exits")]
 	block: bool,
+
+	#[structopt(long, short, value_name = "N", help = "Delay command execution for N milliseconds")]
+	delay: Option<u64>,
 }
 
 #[derive(Debug)]
@@ -212,9 +217,39 @@ fn run(opts: &Opts, edge: Edge, cmds: &Commands)
 	}
 }
 
+fn query_pointer(display: *mut xlib::Display, window: xlib::Window) -> (i32, i32)
+{
+	let mut root_ret: u64 = 0;
+	let mut child_ret: u64 = 0;
+	let mut x: i32 = 0;
+	let mut y: i32 = 0;
+	let mut winx_ret: i32 = 0;
+	let mut winy_ret: i32 = 0;
+	let mut mask_ret: u32 = 0;
+
+	unsafe {
+		xlib::XQueryPointer(display,
+				    window,
+				    &mut root_ret,
+				    &mut child_ret,
+				    &mut x,
+				    &mut y,
+				    &mut winx_ret,
+				    &mut winy_ret,
+				    &mut mask_ret);
+	}
+
+	return (x, y);
+}
+
 fn main()
 {
 	let opts = Opts::from_args();
+
+	// Set delay
+	let default_delay: u64 = 0;
+	let max_delay: u64 = 1000;
+	let delay: u64 = opts.delay.unwrap_or(default_delay).min(max_delay);
 
 	// Set commands from arguments
 	let mut cmds = Commands {
@@ -350,25 +385,7 @@ fn main()
 			   cookie.extension == major_opcode &&
 			   cookie.evtype == xinput2::XI_RawMotion {
 
-				let mut root_ret: u64 = 0;
-				let mut child_ret: u64 = 0;
-				let mut x: i32 = 0;
-				let mut y: i32 = 0;
-				let mut winx_ret: i32 = 0;
-				let mut winy_ret: i32 = 0;
-				let mut mask_ret: u32 = 0;
-
-				xlib::XQueryPointer(display,
-						    window,
-						    &mut root_ret,
-						    &mut child_ret,
-						    &mut x,
-						    &mut y,
-						    &mut winx_ret,
-						    &mut winy_ret,
-						    &mut mask_ret);
-
-				// Now we have the position in x and y
+				let (x, y) = query_pointer(display, window);
 
 				if opts.debug {
 					println!("{} {}", x, y);
@@ -388,8 +405,20 @@ fn main()
 				}
 
 				let edge = in_edge(x, y, xmax, ymax, offset);
+
 				if edge != Edge::NONE {
-					run(&opts, edge, &cmds);
+					if opts.debug {
+						println!("delay: {}", delay);
+					}
+
+					// Apply delay
+					thread::sleep(time::Duration::from_millis(delay));
+
+					// Run the command if the pointer is still in the edge
+					let (x, y) = query_pointer(display, window);
+					if edge == in_edge(x, y, xmax, ymax, offset) {
+						run(&opts, edge, &cmds);
+					}
 				}
 
 				oldx = x;
@@ -398,6 +427,7 @@ fn main()
 
 			xlib::XFreeEventData(display, &mut cookie);
 
+			// Wait for events
 			if libc::poll(&mut fds, 1, -1) < 0 {
 				break;
 			}
