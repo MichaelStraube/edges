@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+- Added option to delay command execution.
+- Removed short debug flag.
+
 ## 3.0.2 (2023-10-16)
 - Maintenance release.
 - Updated dependencies.
