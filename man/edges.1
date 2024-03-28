@@ -15,7 +15,7 @@ Block until a command exits
 \fB\-c\fR, \fB\-\-config\fR
 Read commands from config file
 .TP
-\fB\-d\fR, \fB\-\-debug\fR
+\fB\-\-debug\fR
 Prints debug information
 .TP
 \fB\-h\fR, \fB\-\-help\fR
@@ -33,6 +33,9 @@ Bottom left corner command
 .TP
 \fB\-\-bottomright\fR <CMD>
 Bottom right corner command
+.TP
+\fB\-d\fR, \fB\-\-delay\fR <N>
+Delay command execution for N milliseconds. Values of N > 1000 will be set to 1000.
 .TP
 \fB\-\-left\fR <CMD>
 Left edge command
