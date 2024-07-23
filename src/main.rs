@@ -435,7 +435,7 @@ fn main()
 
 			// Wait for events
 			if libc::poll(&mut fds, 1, -1) < 0 {
-				break;
+				panic!("poll failed");
 			}
 		};
 
