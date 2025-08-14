@@ -11,11 +11,12 @@ use nix::unistd;
 use nix::sys;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
+use std::sync::Arc;
+use std::io::Error;
+use signal_hook::consts::{SIGINT, SIGTERM, SIGHUP};
 use configparser::ini::Ini;
 use std::thread;
 use std::time;
-
-static RUNNING: AtomicBool = AtomicBool::new(true);
 
 #[derive(Debug, StructOpt)]
 struct Opts {
@@ -79,10 +80,6 @@ enum Edge {
 	RIGHT,
 	BOTTOM,
 	NONE,
-}
-
-fn sighandler() {
-	RUNNING.store(false, Ordering::Relaxed);
 }
 
 fn point_in_rect(x: i32, y: i32, rect: (i32, i32, i32, i32)) -> bool
@@ -248,7 +245,7 @@ fn query_pointer(display: *mut xlib::Display, window: xlib::Window) -> (i32, i32
 	return (x, y);
 }
 
-fn main()
+fn main() -> Result<(), Error>
 {
 	let opts = Opts::from_args();
 
@@ -292,12 +289,13 @@ fn main()
 		panic!("Global pointer query not supported on Wayland");
 	}
 
-	unsafe {
-		// Catch signals
-		libc::signal(libc::SIGINT, sighandler as usize);
-		libc::signal(libc::SIGTERM, sighandler as usize);
-		libc::signal(libc::SIGHUP, sighandler as usize);
+	// Catch signals
+	let quit = Arc::new(AtomicBool::new(false));
+	signal_hook::flag::register(SIGINT, Arc::clone(&quit))?;
+	signal_hook::flag::register(SIGTERM, Arc::clone(&quit))?;
+	signal_hook::flag::register(SIGHUP, Arc::clone(&quit))?;
 
+	unsafe {
 		// Open display
 		let display = xlib::XOpenDisplay(ptr::null());
 		if display.is_null() {
@@ -372,7 +370,10 @@ fn main()
 		let mut xmax: i32 = 0;
 		let mut ymax: i32 = 0;
 
-		while RUNNING.load(Ordering::Relaxed) {
+		while !quit.load(Ordering::Relaxed) {
+			// Wait for events
+			libc::poll(&mut fds, 1, -1);
+
 			if xlib::XPending(display) == 0 {
 				continue;
 			}
@@ -432,15 +433,11 @@ fn main()
 			}
 
 			xlib::XFreeEventData(display, &mut cookie);
-
-			// Wait for events
-			if libc::poll(&mut fds, 1, -1) < 0 {
-				panic!("poll failed");
-			}
 		};
 
 		// Clean up
 		xrandr::XRRFreeMonitors(monitorinfo);
 		xlib::XCloseDisplay(display);
 	}
+	Ok(())
 }
