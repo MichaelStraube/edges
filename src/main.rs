@@ -6,13 +6,11 @@ use std::ptr;
 use std::env;
 use std::ffi::CString;
 use std::mem::MaybeUninit;
-use std::ffi::CStr;
-use nix::unistd;
-use nix::sys;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::io::Error;
+use std::process::Command;
 use signal_hook::consts::{SIGINT, SIGTERM, SIGHUP};
 use configparser::ini::Ini;
 use std::thread;
@@ -173,7 +171,7 @@ fn in_edge(x: i32, y: i32, xmax: i32, ymax: i32, offset: i32) -> Edge
 	return Edge::NONE;
 }
 
-fn run(opts: &Opts, edge: Edge, cmds: &Commands)
+fn run(opts: &Opts, edge: Edge, cmds: &Commands) -> Result<(), Error>
 {
 	let cmd = match edge {
 		Edge::TOPLEFT => &cmds.topleft,
@@ -192,32 +190,24 @@ fn run(opts: &Opts, edge: Edge, cmds: &Commands)
 	}
 
 	if cmd.is_none() {
-		return;
+		return Ok(());
 	}
 
-	// Split to C strings for execvp
 	let s: String = cmd.as_ref().unwrap().to_string();
 	let split: Vec<&str> = s.split_whitespace().collect();
 	if split.is_empty() {
-		return;
+		return Ok(());
 	}
-	let vec: Vec<CString> = split.iter().map(|s| CString::new(s.as_bytes()).unwrap()).collect();
-	let args: Vec<&CStr> = vec.iter().map(|c| c.as_c_str()).collect();
 
-	unsafe {
-		match unistd::fork() {
-			Ok(unistd::ForkResult::Child) => {
-				let _ = unistd::execvp(args[0], &args);
-				libc::_exit(0);
-			}
-			Ok(unistd::ForkResult::Parent {..}) => {
-				if opts.block {
-					let _ = sys::wait::wait();
-				}
-			}
-			Err(_) => println!("Fork failed"),
-		}
+	let mut child = Command::new(split[0])
+	.args(&split[1..])
+	.spawn()?;
+
+	if opts.block {
+		child.wait()?;
 	}
+
+	Ok(())
 }
 
 fn query_pointer(display: *mut xlib::Display, window: xlib::Window) -> (i32, i32)
@@ -424,7 +414,7 @@ fn main() -> Result<(), Error>
 					// Run the command if the pointer is still in the edge
 					let (x, y) = query_pointer(display, window);
 					if edge == in_edge(x, y, xmax, ymax, offset) {
-						run(&opts, edge, &cmds);
+						run(&opts, edge, &cmds)?;
 					}
 				}
 
