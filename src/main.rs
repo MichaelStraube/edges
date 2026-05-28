@@ -2,6 +2,16 @@ use structopt::StructOpt;
 use x11::xlib;
 use x11::xrandr;
 use x11::xinput2;
+use x11rb;
+use x11rb::connection::Connection;
+use x11rb::protocol::xinput::{
+	Device, DeviceId, XIEventMask, EventMask, xi_select_events
+};
+// use x11rb::connection::Connection;
+use x11rb::protocol::xproto::ConnectionExt;
+use x11rb::protocol::randr::ConnectionExt as RandrExt;
+use x11rb::protocol::xinput;
+use x11rb::protocol::xinput::ConnectionExt as XInputExt;
 use std::ptr;
 use std::env;
 use std::ffi::CString;
@@ -15,6 +25,8 @@ use signal_hook::consts::{SIGINT, SIGTERM, SIGHUP};
 use configparser::ini::Ini;
 use std::thread;
 use std::time;
+
+
 
 #[derive(Debug, StructOpt)]
 struct Opts {
@@ -210,32 +222,39 @@ fn run(opts: &Opts, edge: Edge, cmds: &Commands) -> Result<(), Error>
 	Ok(())
 }
 
-fn query_pointer(display: *mut xlib::Display, window: xlib::Window) -> (i32, i32)
-{
-	let mut root_ret: u64 = 0;
-	let mut child_ret: u64 = 0;
-	let mut x: i32 = 0;
-	let mut y: i32 = 0;
-	let mut winx_ret: i32 = 0;
-	let mut winy_ret: i32 = 0;
-	let mut mask_ret: u32 = 0;
+// fn query_pointer(display: *mut xlib::Display, window: xlib::Window) -> (i32, i32)
+// {
+// 	let mut root_ret: u64 = 0;
+// 	let mut child_ret: u64 = 0;
+// 	let mut x: i32 = 0;
+// 	let mut y: i32 = 0;
+// 	let mut winx_ret: i32 = 0;
+// 	let mut winy_ret: i32 = 0;
+// 	let mut mask_ret: u32 = 0;
+//
+// 	unsafe {
+// 		xlib::XQueryPointer(display,
+// 				    window,
+// 				    &mut root_ret,
+// 				    &mut child_ret,
+// 				    &mut x,
+// 				    &mut y,
+// 				    &mut winx_ret,
+// 				    &mut winy_ret,
+// 				    &mut mask_ret);
+// 	}
+//
+// 	return (x, y);
+// }
 
-	unsafe {
-		xlib::XQueryPointer(display,
-				    window,
-				    &mut root_ret,
-				    &mut child_ret,
-				    &mut x,
-				    &mut y,
-				    &mut winx_ret,
-				    &mut winy_ret,
-				    &mut mask_ret);
-	}
 
-	return (x, y);
+
+fn query_pointer<C: Connection>(conn: &C, window: u32) -> Result<(i16, i16), Box<dyn std::error::Error>> {
+	let reply = conn.query_pointer(window)?.reply()?;
+	Ok((reply.root_x, reply.root_y))
 }
 
-fn main() -> Result<(), Error>
+fn main() -> Result<(), Box<dyn std::error::Error>>
 {
 	let opts = Opts::from_args();
 
@@ -285,149 +304,185 @@ fn main() -> Result<(), Error>
 	signal_hook::flag::register(SIGTERM, Arc::clone(&quit))?;
 	signal_hook::flag::register(SIGHUP, Arc::clone(&quit))?;
 
-	unsafe {
-		// Open display
-		let display = xlib::XOpenDisplay(ptr::null());
-		if display.is_null() {
-			panic!("XOpenDisplay failed");
-		}
+	// Connect to xserver
+	let (conn, screen_num) = x11rb::connect(None)?;
+	let screen = &conn.setup().roots[screen_num];
+	let root = screen.root;
 
-		let window = xlib::XDefaultRootWindow(display);
+	// Select raw motion events
+	let mask = EventMask {
+		deviceid: DeviceId::from(Device::ALL),
+		mask: vec![XIEventMask::RAW_MOTION],
+	};
 
-		// Query XInput2
-		let mut major_opcode: i32 = 0;
-		let mut first_event: i32 = 0;
-		let mut first_error: i32 = 0;
-		let c_str = CString::new("XInputExtension").unwrap();
+	xi_select_events(&conn, root, &vec![mask])?;
+	conn.flush()?;
 
-		if xlib::XQueryExtension(display,
-					 c_str.as_ptr(),
-					 &mut major_opcode,
-					 &mut first_event,
-					 &mut first_error) == xlib::False {
-			panic!("Failed to query XInputExtension");
-		}
 
-		// Query Xrandr
-		let mut have_randr_1_5: bool = false;
-		let mut event_base: i32 = 0;
-		let mut error_base: i32 = 0;
+	let xmax = screen.width_in_pixels as i32 - 1;
+	let ymax = screen.height_in_pixels as i32 - 1;
+	println!("{} {}", xmax, ymax);
 
-		if xrandr::XRRQueryExtension(display, &mut event_base, &mut error_base) == xlib::True {
-			let mut major: i32 = 0;
-			let mut minor: i32 = 0;
 
-			xrandr::XRRQueryVersion(display, &mut major, &mut minor);
 
-			if (major == 1 && minor >= 5) || major > 1 {
-				have_randr_1_5 = true;
-			}
-		}
-
-		if !have_randr_1_5 {
-			panic!("Xrandr >= 1.5 not available");
-		}
-
-		// Select raw motion events
-		let mut mask = [0u8; (xinput2::XI_LASTEVENT as usize + 7) / 8]; // wtf?
-		xinput2::XISetMask(&mut mask, xinput2::XI_RawMotion);
-
-		let mut event_mask = xinput2::XIEventMask {
-			deviceid: xinput2::XIAllMasterDevices,
-			mask_len: mask.len() as i32,
-			mask: &mut mask[0] as *mut u8,
-		};
-		xinput2::XISelectEvents(display, window, &mut event_mask, 1);
-
-		// Get monitors
-		let mut nmonitors: i32 = 0;
-		let monitorinfo = xrandr::XRRGetMonitors(display, window, xlib::True, &mut nmonitors);
-		if monitorinfo.is_null() {
-			panic!("XRRGetMonitors failed");
-		}
-
-		// prepare polling
-		let mut fds = libc::pollfd {
-			fd: xlib::XConnectionNumber(display),
-			events: libc::POLLIN,
-			revents: 0,
-		};
-
-		// Main loop
-
-		let mut oldx: i32 = 1;
-		let mut oldy: i32 = 1;
-		let mut xmax: i32 = 0;
-		let mut ymax: i32 = 0;
-
-		while !quit.load(Ordering::Relaxed) {
-			// Wait for events
-			libc::poll(&mut fds, 1, -1);
-
-			if xlib::XPending(display) == 0 {
-				continue;
-			}
-
-			let event = {
-				let mut event = MaybeUninit::uninit();
-				xlib::XNextEvent(display, event.as_mut_ptr());
-				event.assume_init()
-			};
-
-			let mut cookie: xlib::XGenericEventCookie = event.generic_event_cookie;
-			xlib::XGetEventData(display, &mut cookie);
-
-			// Was pointer moved?
-			if cookie.type_ == xlib::GenericEvent &&
-			   cookie.extension == major_opcode &&
-			   cookie.evtype == xinput2::XI_RawMotion {
-
-				let (x, y) = query_pointer(display, window);
-
-				if opts.debug {
-					println!("{} {}", x, y);
-				}
-
-				get_xymax(x, y, &mut xmax, &mut ymax, display, nmonitors, monitorinfo);
-
-				// Specifies the "hot" zones
-				let offset: i32 = ((ymax as f64) * 0.25) as i32;
-
-				// Make sure we run commands only once on edge hits
-				if (x == oldx && y == oldy) ||
-				   (x == oldx && y > offset && y < ymax - offset) ||
-				   (y == oldy && x > offset && x < xmax - offset) {
-					xlib::XFreeEventData(display, &mut cookie);
-					continue;
-				}
-
-				let edge = in_edge(x, y, xmax, ymax, offset);
-
-				if edge != Edge::NONE {
-					if opts.debug {
-						println!("delay: {}", delay);
-					}
-
-					// Apply delay
-					thread::sleep(time::Duration::from_millis(delay));
-
-					// Run the command if the pointer is still in the edge
-					let (x, y) = query_pointer(display, window);
-					if edge == in_edge(x, y, xmax, ymax, offset) {
-						run(&opts, edge, &cmds)?;
-					}
-				}
-
-				oldx = x;
-				oldy = y;
-			}
-
-			xlib::XFreeEventData(display, &mut cookie);
-		};
-
-		// Clean up
-		xrandr::XRRFreeMonitors(monitorinfo);
-		xlib::XCloseDisplay(display);
+	loop {
+		println!("{:?}\n", conn.wait_for_event().unwrap());
 	}
+
+	let monitors = conn.randr_get_monitors(root, true)?.reply()?;
+
+	for mon in &monitors.monitors {
+		println!("{} {} {} {}",
+	   mon.x,
+	   mon.y,
+	   mon.width,
+	   mon.height
+		);
+	}
+
+	// unsafe {
+	// 	// Open display
+	// 	let display = xlib::XOpenDisplay(ptr::null());
+	// 	if display.is_null() {
+	// 		panic!("XOpenDisplay failed");
+	// 	}
+ //
+	// 	let window = xlib::XDefaultRootWindow(display);
+ //
+	// 	// Query XInput2
+	// 	let mut major_opcode: i32 = 0;
+	// 	let mut first_event: i32 = 0;
+	// 	let mut first_error: i32 = 0;
+	// 	let c_str = CString::new("XInputExtension").unwrap();
+ //
+	// 	if xlib::XQueryExtension(display,
+	// 				 c_str.as_ptr(),
+	// 				 &mut major_opcode,
+	// 				 &mut first_event,
+	// 				 &mut first_error) == xlib::False {
+	// 		panic!("Failed to query XInputExtension");
+	// 	}
+ //
+	// 	// Query Xrandr
+	// 	let mut have_randr_1_5: bool = false;
+	// 	let mut event_base: i32 = 0;
+	// 	let mut error_base: i32 = 0;
+ //
+	// 	if xrandr::XRRQueryExtension(display, &mut event_base, &mut error_base) == xlib::True {
+	// 		let mut major: i32 = 0;
+	// 		let mut minor: i32 = 0;
+ //
+	// 		xrandr::XRRQueryVersion(display, &mut major, &mut minor);
+ //
+	// 		if (major == 1 && minor >= 5) || major > 1 {
+	// 			have_randr_1_5 = true;
+	// 		}
+	// 	}
+ //
+	// 	if !have_randr_1_5 {
+	// 		panic!("Xrandr >= 1.5 not available");
+	// 	}
+ //
+	// 	// Select raw motion events
+	// 	let mut mask = [0u8; (xinput2::XI_LASTEVENT as usize + 7) / 8]; // wtf?
+	// 	xinput2::XISetMask(&mut mask, xinput2::XI_RawMotion);
+ //
+	// 	let mut event_mask = xinput2::XIEventMask {
+	// 		deviceid: xinput2::XIAllMasterDevices,
+	// 		mask_len: mask.len() as i32,
+	// 		mask: &mut mask[0] as *mut u8,
+	// 	};
+	// 	xinput2::XISelectEvents(display, window, &mut event_mask, 1);
+ //
+	// 	// Get monitors
+	// 	let mut nmonitors: i32 = 0;
+	// 	let monitorinfo = xrandr::XRRGetMonitors(display, window, xlib::True, &mut nmonitors);
+	// 	if monitorinfo.is_null() {
+	// 		panic!("XRRGetMonitors failed");
+	// 	}
+ //
+	// 	// prepare polling
+	// 	let mut fds = libc::pollfd {
+	// 		fd: xlib::XConnectionNumber(display),
+	// 		events: libc::POLLIN,
+	// 		revents: 0,
+	// 	};
+ //
+	// 	// Main loop
+ //
+	// 	let mut oldx: i32 = 1;
+	// 	let mut oldy: i32 = 1;
+	// 	let mut xmax: i32 = 0;
+	// 	let mut ymax: i32 = 0;
+ //
+	// 	while !quit.load(Ordering::Relaxed) {
+	// 		// Wait for events
+	// 		libc::poll(&mut fds, 1, -1);
+ //
+	// 		if xlib::XPending(display) == 0 {
+	// 			continue;
+	// 		}
+ //
+	// 		let event = {
+	// 			let mut event = MaybeUninit::uninit();
+	// 			xlib::XNextEvent(display, event.as_mut_ptr());
+	// 			event.assume_init()
+	// 		};
+ //
+	// 		let mut cookie: xlib::XGenericEventCookie = event.generic_event_cookie;
+	// 		xlib::XGetEventData(display, &mut cookie);
+ //
+	// 		// Was pointer moved?
+	// 		if cookie.type_ == xlib::GenericEvent &&
+	// 		   cookie.extension == major_opcode &&
+	// 		   cookie.evtype == xinput2::XI_RawMotion {
+ //
+	// 			let (x, y) = query_pointer(display, window);
+ //
+	// 			if opts.debug {
+	// 				println!("{} {}", x, y);
+	// 			}
+ //
+	// 			get_xymax(x, y, &mut xmax, &mut ymax, display, nmonitors, monitorinfo);
+ //
+	// 			// Specifies the "hot" zones
+	// 			let offset: i32 = ((ymax as f64) * 0.25) as i32;
+ //
+	// 			// Make sure we run commands only once on edge hits
+	// 			if (x == oldx && y == oldy) ||
+	// 			   (x == oldx && y > offset && y < ymax - offset) ||
+	// 			   (y == oldy && x > offset && x < xmax - offset) {
+	// 				xlib::XFreeEventData(display, &mut cookie);
+	// 				continue;
+	// 			}
+ //
+	// 			let edge = in_edge(x, y, xmax, ymax, offset);
+ //
+	// 			if edge != Edge::NONE {
+	// 				if opts.debug {
+	// 					println!("delay: {}", delay);
+	// 				}
+ //
+	// 				// Apply delay
+	// 				thread::sleep(time::Duration::from_millis(delay));
+ //
+	// 				// Run the command if the pointer is still in the edge
+	// 				let (x, y) = query_pointer(display, window);
+	// 				if edge == in_edge(x, y, xmax, ymax, offset) {
+	// 					run(&opts, edge, &cmds)?;
+	// 				}
+	// 			}
+ //
+	// 			oldx = x;
+	// 			oldy = y;
+	// 		}
+ //
+	// 		xlib::XFreeEventData(display, &mut cookie);
+	// 	};
+ //
+	// 	// Clean up
+	// 	xrandr::XRRFreeMonitors(monitorinfo);
+	// 	xlib::XCloseDisplay(display);
+	// }
 	Ok(())
 }

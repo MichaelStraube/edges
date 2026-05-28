@@ -7,6 +7,7 @@ edition = "2021"
 xlib = []
 
 [dependencies]
+x11rb = { version = "0.13", features = ["randr", "xinput"] }
 structopt = "0.3.26"
 x11 = "2.19.1"
 libc = "0.2.126"
